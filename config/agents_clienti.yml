@@ -1,0 +1,26 @@
+# ⚠️ REGISTRO CLIENTI: il team di specialisti raggiungibile dai clienti.
+# Il registro INTERNO del gestore è config/agents_config.yml: MAI mescolare
+# i due, e MAI collegare qui tool o agenti che vedono più di un cliente.
+#
+# per_cliente: true  → l'agente tocca dati dei clienti: la fabbrica viene
+#                      chiamata a ogni sessione con il cliente_id del login
+# per_cliente: false → pura conoscenza di settore, nessun dato di clienti:
+#                      costruito una volta sola e condiviso tra le sessioni
+agenti:
+  costi_dkv:
+    per_cliente: true
+    descrizione: >
+      Consumi e spese DKV della propria azienda: litri, carburante, pedaggi,
+      andamenti mensili, ripartizione per nazione, prezzo medio al litro,
+      servizi che fanno risparmiare.
+    modulo: agents.agente_cliente
+    funzione: costruisci_agente_cliente
+
+  normativa:
+    per_cliente: false
+    descrizione: >
+      Norme e regole dell'autotrasporto: cabotaggio, distacco dei
+      conducenti, tempi di guida e riposo, documenti di trasporto;
+      risposte basate sui testi ufficiali, sempre con la fonte citata.
+    modulo: agents.agente_normativa
+    funzione: costruisci_agente_normativa

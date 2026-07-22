@@ -58,13 +58,15 @@ fermati a chiedermelo.
      `pip install --upgrade pip && pip install -r requirements.txt`.
    - `pip check` non segnala conflitti.
    - Verifica gli import chiave:
-     `python -c "import langchain, langgraph, langchain_openai, pandas, sqlalchemy, psycopg2, yaml, fastapi, openpyxl; print('import ok')"`
+     `python -c "import langchain, langgraph, langchain_openai, pandas, sqlalchemy, psycopg2, yaml, fastapi, openpyxl, chromadb, sentence_transformers, pypdf; print('import ok')"`
+     (nota: sentence-transformers è pesante, l'installazione può richiedere minuti)
 
 6. CONTAINER DOCKER
    - `docker compose up -d` (scarica le immagini alla prima esecuzione).
-   - `docker compose ps`: i container `n8n`, `postgres` e `open-webui` sono
-     tutti in stato "running" (non "restarting"). Se uno non parte, mostrami
-     le ultime 30 righe dei suoi log (`docker compose logs --tail 30 <nome>`).
+   - `docker compose ps`: i container `n8n`, `postgres`, `chromadb`, `adminer`
+     e `open-webui` sono tutti in stato "running" (non "restarting"). Se uno
+     non parte, mostrami le ultime 30 righe dei suoi log
+     (`docker compose logs --tail 30 <nome>`).
    - Nessun container espone porte su 0.0.0.0: nell'output di `docker ps` le
      porte pubblicate devono essere tutte su 127.0.0.1.
 
@@ -114,5 +116,8 @@ YAML del progetto.
    `config/dkv_mapping.yml` ai nomi reali delle colonne.
 4. `python -m scripts.carica_dkv`, poi il collaudo con `chat_test.py`:
    le 5 domande funzionali **e i 3 tentativi di evasione** del §2.8.
-5. Primo accesso a n8n (`http://localhost:5678` via port-forward) e creazione
+5. Copiare le norme/circolari in `dati/normativa/`, compilare `fonti.yml` e
+   lanciare `python -m scripts.indicizza_normativa`
+   (guida completa: `Guida_Indicizzazione_Normativa.md`).
+6. Primo accesso a n8n (`http://localhost:5678` via port-forward) e creazione
    dell'account proprietario.

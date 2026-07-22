@@ -9,12 +9,20 @@ validato su OVH AI Deploy** (vedi `Guida_Spike_vLLM_AI_Deploy.md`).
 
 | Punto della guida | Originale (Ollama) | Questa repo (vLLM su OVH) |
 |---|---|---|
-| `docker-compose.yml` | ollama + n8n + postgres | n8n + postgres + **Open WebUI** (chat di collaudo verso OVH); niente container ollama |
+| `docker-compose.yml` | ollama + n8n + postgres | n8n + postgres + **ChromaDB** (RAG normativa) + Adminer + **Open WebUI** (chat di collaudo verso OVH); niente container ollama |
 | 1.5 Scaricare i modelli | `ollama pull qwen3:…` | Non serve: il modello è già pre-caricato nel bucket e servito da AI Deploy |
 | `requirements.txt` | `langchain-ollama` | `langchain-openai` (l'API di vLLM è compatibile OpenAI) |
 | Costruzione dell'LLM | `ChatOllama(...)` in ogni agente | **`agents/llm.py`**: unico punto con `ChatOpenAI(base_url=VLLM_URL, api_key=VLLM_TOKEN)`; gli agenti lo importano |
 | `.env` | password Postgres | \+ `VLLM_URL`, `VLLM_TOKEN`, `VLLM_MODEL` |
 | Tutto il resto | — | **Identico**: tool, fabbrica per-cliente, prompt, registro, orchestratore, API |
+
+**Oltre la guida originale**, questa repo anticipa due pezzi previsti dalle
+fasi successive dell'architettura (v3, §2 e Fase 6): il **team di agenti dei
+clienti** con il suo orchestratore (`agents/orchestrator_clienti.py` +
+registro `config/agents_clienti.yml`, con la distinzione `per_cliente`) e il
+secondo membro del team, l'**agente Normativa** (RAG su ChromaDB — setup del
+corpus in `Guida_Indicizzazione_Normativa.md`). `chat_test.py` e `server.py`
+passano già dall'orchestratore clienti, come farà il portale in Fase 3.
 
 ## Prerequisito: il motore su AI Deploy acceso, con i flag per il tool calling
 
@@ -72,11 +80,17 @@ python -m scripts.esplora_excel dati/excel_dkv/nomefile.xlsx   # annota i nomi c
 nano config/dkv_mapping.yml                                    # adattali
 python -m scripts.carica_dkv
 
-# 6) Collaudo agenti
-python chat_test.py            # impersona un cliente (5 domande + tentativi di evasione, §2.8)
+# 6) Corpus normativo (agente Normativa): PDF in dati/normativa/,
+#    manifest fonti.yml, poi (guida completa: Guida_Indicizzazione_Normativa.md)
+python -m scripts.indicizza_normativa
+python -m scripts.test_normativa "come funziona il cabotaggio?"
+
+# 7) Collaudo agenti
+python chat_test.py            # impersona un cliente: il router smista tra
+                               # costi DKV e normativa (+ collaudo §2.8)
 python chat_orchestratore.py   # vista gestore ("quali clienti sono in calo?")
 
-# 7) API di sviluppo
+# 8) API di sviluppo
 uvicorn server:app --host 127.0.0.1 --port 8080
 curl -X POST http://localhost:8080/dev/chat/1 \
      -H "Content-Type: application/json" \
@@ -89,13 +103,18 @@ n8n su `http://localhost:5678`, Open WebUI su `http://localhost:3000`.
 ## Struttura
 
 ```
-agents/            llm.py (client vLLM/OVH) · agente_cliente · agente_portafoglio ·
-                   registry · orchestrator
-tools/             db.py · dkv_tools.py (per-cliente, fabbrica) · portafoglio_tools.py (interni)
-scripts/           esplora_excel · carica_dkv · test_vllm
-config/            dkv_mapping.yml · regole_servizi.yml · agents_config.yml · prompts/
+agents/            llm.py (client vLLM/OVH) · agente_cliente · agente_normativa ·
+                   agente_portafoglio · registry · orchestrator (gestore) ·
+                   orchestrator_clienti (per-sessione)
+tools/             db.py · dkv_tools.py (per-cliente, fabbrica) · rag.py (ChromaDB) ·
+                   portafoglio_tools.py (interni)
+scripts/           esplora_excel · carica_dkv · test_vllm · indicizza_normativa ·
+                   test_normativa
+config/            dkv_mapping.yml · regole_servizi.yml · agents_config.yml (interno) ·
+                   agents_clienti.yml (team clienti) · prompts/
 dati/excel_dkv/    gli export DKV (mai su git)
-chat_test.py       collaudo per-cliente (funzionale + sicurezza §2.8)
+dati/normativa/    il corpus di norme/circolari + fonti.yml (mai su git)
+chat_test.py       collaudo cliente via orchestratore (funzionale + sicurezza §2.8)
 chat_orchestratore.py  chat interna del gestore
 server.py          API di sviluppo (127.0.0.1, da eliminare in Fase 3)
 ```
@@ -104,6 +123,11 @@ server.py          API di sviluppo (127.0.0.1, da eliminare in Fase 3)
 
 - L'isolamento multi-tenant è **nel codice** (fabbrica + closure in
   `tools/dkv_tools.py`): nessun tool ha un parametro "cliente".
+- **Due registri di agenti, mai mescolati**: l'orchestratore dei clienti
+  carica solo `agents_clienti.yml` e non conosce gli agenti interni del
+  gestore (`agents_config.yml`).
+- Il **corpus normativo è condiviso** tra tutti i clienti: dentro solo
+  documenti pubblici, mai dati di clienti (vedi guida indicizzazione).
 - Il **collaudo di sicurezza** del §2.8 va ripetuto su ogni motore nuovo —
   quindi anche su questo vLLM remoto, anche se i tool non sono cambiati.
 - `.env` (token OVH e password) non si committa mai; `.cursorignore` tiene

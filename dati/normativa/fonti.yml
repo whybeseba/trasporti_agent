@@ -1,0 +1,17 @@
+# Manifest del corpus normativo: per ogni file in questa cartella indica
+# titolo, fonte e data. È ciò che l'agente Normativa CITA nelle risposte:
+# un documento non elencato qui viene indicizzato lo stesso, ma citato solo
+# col nome del file e senza data (lo script ti avvisa).
+#
+# La data serve anche al cliente: l'agente segnala i documenti datati.
+# Formato data: AAAA-MM-GG (o solo AAAA se non sai il giorno).
+documenti:
+  # ── Esempi: decommenta e adatta ──
+  # "regolamento_ce_1072_2009.pdf":
+  #   titolo: "Regolamento (CE) n. 1072/2009 — accesso al mercato del trasporto internazionale su strada"
+  #   fonte: "Gazzetta ufficiale dell'Unione europea"
+  #   data: "2009-10-21"
+  # "circolare_cabotaggio_2026.pdf":
+  #   titolo: "Circolare MIT — chiarimenti sul cabotaggio stradale"
+  #   fonte: "Ministero delle Infrastrutture e dei Trasporti"
+  #   data: "2026-02-10"

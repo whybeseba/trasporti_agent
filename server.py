@@ -4,7 +4,7 @@ arriverà dal login, e questo endpoint di sviluppo verrà eliminato."""
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from agents.agente_cliente import costruisci_agente_cliente
+from agents.orchestrator_clienti import costruisci_orchestratore_cliente
 from tools.db import query, salva_conversazione
 
 app = FastAPI(title="Motore DKV — API di sviluppo")
@@ -22,7 +22,8 @@ def chat_cliente(cliente_id: int, d: Domanda):
                       FROM clienti WHERE id = :i""", {"i": cliente_id})
         if df.empty:
             raise HTTPException(404, "Cliente inesistente")
-        _cache_agenti[cliente_id] = costruisci_agente_cliente(cliente_id, df.iloc[0, 0])
+        _cache_agenti[cliente_id] = costruisci_orchestratore_cliente(
+            cliente_id, df.iloc[0, 0])
     ris = _cache_agenti[cliente_id].invoke(
         {"messages": [{"role": "user", "content": d.domanda}]})
     risposta = ris["messages"][-1].content

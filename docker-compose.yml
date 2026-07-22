@@ -37,6 +37,17 @@ services:
       - "127.0.0.1:8081:8080"
     restart: unless-stopped
 
+  # ChromaDB: il database vettoriale del RAG dell'agente Normativa.
+  # Entra nello stack SOLO ora che l'agente Normativa ha una data (v3, §4).
+  chromadb:
+    image: chromadb/chroma:1.0.0   # tag fissato: mai :latest (stessa regola di vLLM)
+    container_name: chromadb
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - chroma_data:/data
+    restart: unless-stopped
+
   # Open WebUI: la chat di collaudo collegata al motore vLLM su OVH AI Deploy.
   # Sostituisce il "primo test in chat" che la guida originale faceva con
   # Ollama: qui il modello NON gira su questa macchina, gira su AI Deploy.
@@ -57,4 +68,5 @@ services:
 volumes:
   n8n_data:
   postgres_data:
+  chroma_data:
   open_webui_data:

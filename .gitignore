@@ -118,6 +118,11 @@ dati/**/*.xls
 dati/**/*.csv
 dati/**/*.parquet
 dati/**/*.json
+# Corpus normativo (PDF/testi delle norme: pesanti, non versionare)
+dati/**/*.pdf
+dati/**/*.docx
+dati/**/*.txt
+dati/**/*.md
 !dati/**/.gitkeep
 
 # Modelli LLM locali (pesi grandi, non versionare)
