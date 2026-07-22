@@ -29,6 +29,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  # Adminer: interfaccia web per ispezionare PostgreSQL (stile phpMyAdmin)
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "127.0.0.1:8081:8080"
+    restart: unless-stopped
+
   # Open WebUI: la chat di collaudo collegata al motore vLLM su OVH AI Deploy.
   # Sostituisce il "primo test in chat" che la guida originale faceva con
   # Ollama: qui il modello NON gira su questa macchina, gira su AI Deploy.
