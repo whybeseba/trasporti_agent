@@ -1,10 +1,26 @@
-# A sinistra i nomi standard del sistema (NON cambiarli),
-# a destra i nomi esatti delle colonne nel TUO export DKV (adattali).
-foglio: 0
-colonne:
-  cliente: "Ragione sociale"
-  periodo: "Mese"
-  nazione: "Paese"
-  litri: "Litri erogati"
-  importo_carburante: "Importo carburante"
-  importo_pedaggi: "Importo pedaggi"
+# Mappatura dell'export DKV in formato "wide": i mesi stanno NELLE COLONNE
+# (una riga con i periodi tipo "JAN 2026" sopra la riga delle intestazioni,
+# e le stesse metriche ripetute sotto ogni mese).
+# scripts/carica_dkv.py trasforma da solo il formato largo in righe
+# cliente × mese × nazione: qui devi solo dire dove stanno le cose.
+
+foglio: 0             # quale foglio del file (0 = il primo)
+riga_periodi: 1       # riga con i mesi "JAN 2026", "FEB 2026"... (1 = prima riga)
+riga_intestazioni: 2  # riga con i nomi delle colonne veri e propri
+
+# Colonne anagrafiche (una sola volta, a inizio riga). Nomi ESATTI del tuo file.
+colonne_fisse:
+  cliente_codice: "bill-to party"    # codice univoco DKV → chiave dell'anagrafica
+  cliente_nome: "BP name 1"          # ragione sociale leggibile
+  nazione: "service country"         # sigla nazione (IT, FR, ...)
+
+# Metriche che si ripetono sotto ogni mese → campo standard del database.
+# A sinistra il nome ESATTO nell'export; a destra uno tra:
+#   litri · importo_carburante · importo_pedaggi · ignora
+metriche:
+  "Volume (L+KG)": litri
+  "turnover toll (LC)": importo_pedaggi
+  "quantity (at unit kWh)": ignora   # ricariche elettriche: per ora fuori perimetro
+  # ⚠️ In questo export di esempio NON c'è la spesa carburante in euro:
+  # se nell'export completo esiste (es. "turnover fuel (LC)"), mappala qui:
+  # "turnover fuel (LC)": importo_carburante
