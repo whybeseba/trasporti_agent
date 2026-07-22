@@ -1,0 +1,158 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# C extension
+*.so
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env/
+
+# Installer / packaging tools
+.pip/
+.pdm-python/
+.pdm.toml
+.poetry/
+poetry.lock
+Pipfile.lock
+uv.lock
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+.pytype/
+.pyre/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Type checkers / linters
+.mypy_cache/
+.pyright/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environments & secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+secrets/
+credentials.json
+service-account*.json
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.code-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs (cartella del progetto)
+logs/
+*.log
+*.log.*
+
+# Dati runtime / file Excel scaricati
+dati/**/*.xlsx
+dati/**/*.xls
+dati/**/*.csv
+dati/**/*.parquet
+dati/**/*.json
+!dati/**/.gitkeep
+
+# Modelli LLM locali (pesi grandi, non versionare)
+qwen3-8b/
+models/
+*.safetensors
+*.bin
+*.gguf
+*.ggml
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.h5
+
+# Cache Hugging Face / transformers
+.cache/
+**/huggingface/
+transformers_cache/
+HF_HOME/
+.huggingface/
+
+# Temporary / runtime
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.pid
+.python-version
+
+# Local overrides
+local_settings.py
+config.local.*
+*.local.yaml
+*.local.yml
+*.local.toml
