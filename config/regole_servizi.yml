@@ -1,0 +1,21 @@
+# Regole per proporre i servizi aggiuntivi ai clienti.
+# ⚠️ NAZIONI E SOGLIE DI ESEMPIO: correggile tu, che conosci il business.
+servizi:
+  recupero_accise:
+    nome: "Recupero accise gasolio professionale"
+    nazioni: ["FR", "BE", "ES", "IT", "SI", "HU", "HR"]
+    litri_min_mese: 1000        # media litri/mese nella nazione per proporlo
+
+  recupero_iva:
+    nome: "Recupero IVA estera"
+    escludi_nazioni: ["IT"]
+    importo_min_trimestre: 400  # € di spese nella nazione nell'ultimo trimestre
+
+  servizio_pedaggi:
+    nome: "Servizio pedaggi"
+    litri_min_mese: 500         # rifornisce nella nazione, ma pedaggi a zero
+
+  cabotaggio:
+    nome: "Consulenza cabotaggio"
+    escludi_nazioni: ["IT"]
+    mesi_presenza: 3            # mesi con attività nella stessa nazione estera

@@ -1,0 +1,10 @@
+# A sinistra i nomi standard del sistema (NON cambiarli),
+# a destra i nomi esatti delle colonne nel TUO export DKV (adattali).
+foglio: 0
+colonne:
+  cliente: "Ragione sociale"
+  periodo: "Mese"
+  nazione: "Paese"
+  litri: "Litri erogati"
+  importo_carburante: "Importo carburante"
+  importo_pedaggi: "Importo pedaggi"

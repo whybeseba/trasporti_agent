@@ -1,0 +1,15 @@
+# ⚠️ REGISTRO INTERNO (lato gestore). Il team dei CLIENTI avrà un registro
+# SEPARATO (config/agents_clienti.yml, Fase 3): mai mescolare i due.
+agenti:
+  portafoglio_dkv:
+    descrizione: >
+      Vista interna sul portafoglio clienti DKV: classifiche, variazioni
+      mensili, clienti in calo o azzerati, analisi commerciali.
+    modulo: agents.agente_portafoglio
+    funzione: costruisci_agente_portafoglio
+
+  # ── Agenti futuri: basterà aggiungere una voce qui ──
+  # borsa_carichi:
+  #   descrizione: Cerca e valuta carichi di ritorno sulle borse carichi.
+  #   modulo: agents.agente_borsa
+  #   funzione: costruisci_agente_borsa
