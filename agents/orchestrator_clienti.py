@@ -16,7 +16,7 @@ class StatoCliente(MessagesState):
 
 def costruisci_orchestratore_cliente(cliente_id: int, nome_cliente: str):
     agenti = carica_agenti_clienti(cliente_id, nome_cliente)
-    llm = costruisci_llm()
+    llm = costruisci_llm("orchestratore")   # router e risposte dirette
 
     def _prompt_router() -> str:
         righe = "\n".join(f"- {n}: {i['descrizione'].strip()}"

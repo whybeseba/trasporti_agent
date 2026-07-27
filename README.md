@@ -12,8 +12,8 @@ validato su OVH AI Deploy** (vedi `Guida_Spike_vLLM_AI_Deploy.md`).
 | `docker-compose.yml` | ollama + n8n + postgres | n8n + postgres + **ChromaDB** (RAG normativa) + Adminer + **Open WebUI** (chat di collaudo verso OVH); niente container ollama |
 | 1.5 Scaricare i modelli | `ollama pull qwen3:…` | Non serve: il modello è già pre-caricato nel bucket e servito da AI Deploy |
 | `requirements.txt` | `langchain-ollama` | `langchain-openai` (l'API di vLLM è compatibile OpenAI) |
-| Costruzione dell'LLM | `ChatOllama(...)` in ogni agente | **`agents/llm.py`**: unico punto con `ChatOpenAI(base_url=VLLM_URL, api_key=VLLM_TOKEN)`; gli agenti lo importano |
-| `.env` | password Postgres | \+ `VLLM_URL`, `VLLM_TOKEN`, `VLLM_MODEL` |
+| Costruzione dell'LLM | `ChatOllama(...)` in ogni agente | **`agents/llm.py`**: unico punto con `ChatOpenAI(base_url=..., api_key=VLLM_TOKEN)`, con distinzione di ruolo orchestratore/sub-agenti; gli agenti lo importano |
+| `.env` | password Postgres | \+ `VLLM_URL`, `VLLM_TOKEN`, `VLLM_MODEL` (e opzionali per-ruolo `VLLM_URL_ORCHESTRATORE`/`VLLM_URL_SUBAGENTI`...) |
 | Tutto il resto | — | **Identico**: tool, fabbrica per-cliente, prompt, registro, orchestratore, API |
 
 **Oltre la guida originale**, questa repo anticipa due pezzi previsti dalle
@@ -26,31 +26,23 @@ passano già dall'orchestratore clienti, come farà il portale in Fase 3.
 
 ## Prerequisito: il motore su AI Deploy acceso, con i flag per il tool calling
 
-Gli agenti usano il tool calling, quindi l'app AI Deploy va lanciata con i tre
-flag della Parte 5 della guida spike. Comando completo di riferimento (adatta
-`--model` al tuo percorso nel bucket, vedi Parte 2 della guida spike):
+I comandi `ovhai` aggiornati sono in **`Deploy_due_modelli_vLLM_AI_Deploy.md`**,
+che prevede due configurazioni:
 
-```bash
-ovhai app run \
-  --name vllm-qwen3-8b \
-  --flavor l4-1-gpu \
-  --gpu 1 \
-  --default-http-port 8000 \
-  --label ai_deploy_token=spike-vllm \
-  --env HOME=/workspace \
-  --env USER=vllm \
-  --env LOGNAME=vllm \
-  --env OUTLINES_CACHE_DIR=/workspace/.outlines \
-  --env TORCHINDUCTOR_CACHE_DIR=/workspace/inductor \
-  --volume vllm-models@GRA/:/hub:ro \
-  --volume vllm-workspace@GRA/:/workspace:rw \
-  vllm/vllm-openai:v0.24.0 \
-  -- bash -c "python3 -m vllm.entrypoints.openai.api_server --model /hub --served-model-name Qwen/Qwen3-8B --max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes --reasoning-parser qwen3"
-```
+- **Motore unico** (sezione "Quello da usare per il primo test", la
+  configurazione attuale): `Qwen/Qwen3.6-35B-A3B` FP8 su una L40S — un solo
+  endpoint per orchestratore e sub-agenti. Nel `.env` bastano `VLLM_URL`,
+  `VLLM_TOKEN` e `VLLM_MODEL=Qwen/Qwen3.6-35B-A3B`.
+- **Due motori** (orchestratore `Qwen3.6-27B` + sub-agenti `Qwen3.5-9B`, due
+  app): aggiungi nel `.env` le variabili per-ruolo
+  (`VLLM_URL_ORCHESTRATORE`/`VLLM_MODEL_ORCHESTRATORE` e
+  `VLLM_URL_SUBAGENTI`/`VLLM_MODEL_SUBAGENTI`) — il codice le usa da solo,
+  nessuna modifica necessaria.
 
-Se l'app dello spike gira ancora **senza** quei tre flag, rilanciala con questo
-comando (o creane una seconda cambiando `--name`). Ricorda `ovhai app stop` a
-fine giornata: la GPU si paga a tempo di esecuzione.
+In entrambi i casi l'app va lanciata con i flag del tool calling della linea
+Qwen3.5/3.6: `--enable-auto-tool-choice --tool-call-parser qwen3_coder
+--reasoning-parser qwen3` (immagine `vllm/vllm-openai:v0.26.0`). Ricorda
+`ovhai app stop` a fine giornata: la GPU si paga a tempo di esecuzione.
 
 ## Setup sul server (riassunto operativo)
 

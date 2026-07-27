@@ -139,7 +139,7 @@ ovhai app run \
   --env LOGNAME=vllm \
   --env OUTLINES_CACHE_DIR=/workspace/.outlines \
   --env TORCHINDUCTOR_CACHE_DIR=/workspace/inductor \
-  --volume vllm-models@GRA/:/hub:RO \   
+  --volume vllm-models@GRA/:/hub:ro \
   --volume vllm-workspace@GRA/:/workspace:rw \
   vllm/vllm-openai:v0.26.0 \
   -- bash -c "python3 -m vllm.entrypoints.openai.api_server --model /hub/qwen3.6-35b-a3b-fp8 --served-model-name Qwen/Qwen3.6-35B-A3B --max-model-len 32768 --enable-auto-tool-choice --tool-call-parser qwen3_coder --reasoning-parser qwen3"

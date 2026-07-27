@@ -23,10 +23,15 @@ def costruisci_agente_normativa():
         Restituisce gli estratti con titolo, fonte e data del documento."""
         risultati = _cerca(domanda)
         if not risultati:
-            return "Nessun passaggio pertinente trovato nel corpus normativo."
+            return ("Nessun passaggio pertinente trovato nel corpus normativo. "
+                    "NON rispondere a memoria: se anche una seconda ricerca "
+                    "riformulata non trova nulla, di' al cliente che il tema "
+                    "non è coperto dai documenti disponibili.")
         blocchi = [f"[{i}] {r['titolo']} ({r['fonte']}, {r['data'] or 'senza data'}):\n"
                    f"{r['testo']}"
                    for i, r in enumerate(risultati, 1)]
+        blocchi.append("(Rispondi usando SOLO gli estratti sopra, citandone "
+                       "titolo e data. Se non bastano, dillo al cliente.)")
         return "\n\n".join(blocchi)
 
     prompt = Path("config/prompts/agente_normativa.txt").read_text(encoding="utf-8")

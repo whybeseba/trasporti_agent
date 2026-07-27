@@ -138,9 +138,13 @@ va sai subito se il problema è l'indice o l'agente):
 python -m scripts.test_normativa "quanti trasporti di cabotaggio posso fare in Francia?"
 ```
 
-Devi vedere 4 passaggi pertinenti, ognuno con titolo, fonte, data e una
-**distanza** (più bassa = più pertinente; sopra ~0.6-0.7 il passaggio c'entra
-poco — se tutti i risultati sono lì, il corpus non copre la domanda).
+Devi vedere i passaggi trovati, ognuno con titolo, fonte, data e una
+**distanza** (più bassa = più pertinente). I passaggi oltre la soglia di
+pertinenza (`SOGLIA_DISTANZA` in `tools/rag.py`, default 0.7) sono marcati
+"SCARTATO": **all'agente non arrivano proprio** — passaggi fuori tema in mano
+al modello sono l'innesco classico delle risposte inventate. Se lo script
+scarta estratti che a te sembrano pertinenti, alza la soglia; se tutti i
+risultati sono oltre soglia, il corpus non copre la domanda.
 
 **Poi l'agente completo**, impersonando un cliente:
 
@@ -184,7 +188,7 @@ In Fase 4 potrai farti aiutare da n8n (promemoria periodico automatico).
 | Lo script salta un PDF con "quasi nessun testo estratto" | PDF scansionato (immagine, non testo) | Recupera la versione testuale, o accantonalo per l'OCR |
 | Risultati con distanze tutte alte / fuori tema | Il corpus non copre la domanda | Aggiungi il documento giusto e re-indicizza; non è un difetto del RAG |
 | L'agente risponde senza citare le fonti | Documento non nel manifest, o prompt modificato | Compila `fonti.yml` e re-indicizza; verifica `config/prompts/agente_normativa.txt` |
-| L'agente "sa" cose non nel corpus | Sta improvvisando dalla sua memoria di addestramento | Il prompt lo vieta (regole 1 e 3): se succede, segnalamelo con la domanda esatta |
+| L'agente "sa" cose non nel corpus | Sta improvvisando dalla sua memoria di addestramento | Il prompt lo vieta (regole 2 e 4) e la soglia di pertinenza gli toglie gli estratti fuori tema; se succede ancora, annota la domanda esatta e confronta con `test_normativa`: se i passaggi giusti c'erano, è un problema di modello; se non c'erano, di corpus |
 | Il router manda le domande normative ai costi DKV (o viceversa) | Descrizioni del registro poco distinguibili | Ritocca le `descrizione` in `config/agents_clienti.yml` con esempi concreti |
 | Prima indicizzazione lentissima | Download del modello di embedding + PyTorch | Solo la prima volta; poi resta in cache |
 | `no such column` o errori strani dal client Chroma | Versioni client/server disallineate | Il client `chromadb` (pip) e l'immagine Docker devono essere entrambi 1.x; aggiorna il più vecchio dei due |

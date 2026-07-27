@@ -16,6 +16,12 @@ from chromadb.utils import embedding_functions
 MODELLO_EMBEDDING = "paraphrase-multilingual-MiniLM-L12-v2"
 COLLEZIONE = "normativa"
 
+# Distanza coseno oltre la quale un estratto è considerato non pertinente e
+# NON viene consegnato all'agente: passaggi fuori tema in mano al modello
+# sono l'innesco classico delle risposte inventate. Tarala con
+# scripts/test_normativa.py (che mostra anche gli estratti scartati).
+SOGLIA_DISTANZA = 0.7
+
 _collezione = None
 
 
@@ -35,14 +41,18 @@ def collezione():
     return _collezione
 
 
-def cerca_normativa(domanda: str, n: int = 4) -> list[dict]:
+def cerca_normativa(domanda: str, n: int = 4,
+                    soglia: float | None = SOGLIA_DISTANZA) -> list[dict]:
     """I passaggi del corpus più pertinenti alla domanda, con fonte e data.
     Restituisce una lista di dict: testo, titolo, fonte, data, file, distanza
-    (0 = identico, più alto = meno pertinente)."""
+    (0 = identico, più alto = meno pertinente). Con soglia=None restituisce
+    anche i passaggi oltre soglia (utile per il debug)."""
     ris = collezione().query(query_texts=[domanda], n_results=n)
     risultati = []
     for testo, meta, dist in zip(ris["documents"][0], ris["metadatas"][0],
                                  ris["distances"][0]):
+        if soglia is not None and dist > soglia:
+            continue
         risultati.append({
             "testo": testo,
             "titolo": meta.get("titolo", ""),

@@ -110,8 +110,9 @@ YAML del progetto.
 1. Compilare `.env` con la password Postgres e con URL + token dell'app AI
    Deploy (l'URL con `/v1` finale).
 2. Verificare che l'app su OVH sia avviata **con i flag del tool calling**
-   (`--enable-auto-tool-choice --tool-call-parser hermes --reasoning-parser qwen3`
-   — comando completo nel README): senza, gli agenti non chiamano i tool.
+   (`--enable-auto-tool-choice --tool-call-parser qwen3_coder --reasoning-parser qwen3`
+   — comandi completi in `Deploy_due_modelli_vLLM_AI_Deploy.md`): senza,
+   gli agenti non chiamano i tool.
 3. Copiare gli export DKV in `dati/excel_dkv/` e adattare
    `config/dkv_mapping.yml` ai nomi reali delle colonne.
 4. `python -m scripts.carica_dkv`, poi il collaudo con `chat_test.py`:

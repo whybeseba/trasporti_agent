@@ -5,7 +5,7 @@ from agents.llm import costruisci_llm
 from agents.registry import carica_agenti
 
 AGENTI = carica_agenti()
-llm = costruisci_llm()
+llm = costruisci_llm("orchestratore")
 
 
 class Stato(MessagesState):
