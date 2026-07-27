@@ -8,6 +8,7 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 
 from agents.llm import costruisci_llm
 from agents.registry import carica_agenti_clienti
+from tools import tracing
 
 
 class StatoCliente(MessagesState):
@@ -29,29 +30,39 @@ def costruisci_orchestratore_cliente(cliente_id: int, nome_cliente: str):
                 "Leggi l'ultima domanda e rispondi SOLO con il nome dello "
                 "specialista più adatto (oppure 'nessuno'). Nessun'altra parola.")
 
-    def router(state: StatoCliente):
+    # I nodi ricevono `config` e lo passano alle chiamate annidate: è ciò che
+    # fa arrivare i callback (e quindi la traccia) anche dentro i sub-agenti.
+    def router(state: StatoCliente, config):
         r = llm.invoke([{"role": "system", "content": _prompt_router()}]
-                       + state["messages"])
+                       + state["messages"], config)
         testo = r.content.strip().lower()
-        for nome in agenti:
-            if nome in testo:
-                return {"prossimo": nome}
-        return {"prossimo": "nessuno"}
+        scelta = next((n for n in agenti if n in testo), "nessuno")
+        tracing.router_deciso(scelta, list(agenti))
+        return {"prossimo": scelta}
 
     def _nodo_specialista(nome: str):
-        def esegui(state: StatoCliente):
-            ris = agenti[nome]["agente"].invoke({"messages": state["messages"]})
+        def esegui(state: StatoCliente, config):
+            tracing.specialista_inizio(nome)
+            try:
+                ris = agenti[nome]["agente"].invoke(
+                    {"messages": state["messages"]}, config)
+            finally:
+                tracing.specialista_fine()
             return {"messages": [ris["messages"][-1]]}
         return esegui
 
-    def risposta_diretta(state: StatoCliente):
-        r = llm.invoke([{"role": "system", "content":
-                         f"Sei l'assistente dell'area clienti e stai parlando "
-                         f"con l'azienda cliente «{nome_cliente}». Puoi aiutare "
-                         "su due temi: i suoi consumi e spese DKV, e la "
-                         "normativa dell'autotrasporto. Rispondi in italiano, "
-                         "cortese e sintetico; non inventare mai numeri né "
-                         "riferimenti normativi."}] + state["messages"])
+    def risposta_diretta(state: StatoCliente, config):
+        tracing.specialista_inizio("orchestratore · risposta diretta")
+        try:
+            r = llm.invoke([{"role": "system", "content":
+                             f"Sei l'assistente dell'area clienti e stai parlando "
+                             f"con l'azienda cliente «{nome_cliente}». Puoi aiutare "
+                             "su due temi: i suoi consumi e spese DKV, e la "
+                             "normativa dell'autotrasporto. Rispondi in italiano, "
+                             "cortese e sintetico; non inventare mai numeri né "
+                             "riferimenti normativi."}] + state["messages"], config)
+        finally:
+            tracing.specialista_fine()
         return {"messages": [r]}
 
     grafo = StateGraph(StatoCliente)

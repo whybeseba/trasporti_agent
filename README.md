@@ -90,7 +90,31 @@ curl -X POST http://localhost:8080/dev/chat/1 \
 ```
 
 Interfacce web (solo da localhost, via port-forward di Cursor o tunnel SSH):
-n8n su `http://localhost:5678`, Open WebUI su `http://localhost:3000`.
+n8n su `http://localhost:5678`, Open WebUI su `http://localhost:3000`,
+Adminer su `http://localhost:8081`.
+
+## Leggere i log delle chat di collaudo
+
+`chat_test.py` e `chat_orchestratore.py` mostrano in tempo reale cosa succede
+dentro il sistema (`tools/tracing.py`, un callback handler LangChain + `rich`):
+
+- 🧭 **la scelta del router**: quale specialista prende in carico la domanda,
+  o se risponde direttamente l'orchestratore;
+- 🤖 **chi sta lavorando** in ogni momento — orchestratore o un sub-agente;
+- 🧠 **ogni chiamata al modello** mentre è in corso ("sta pensando…"), poi
+  con durata, modello effettivamente usato, token in ingresso e generati,
+  velocità in token/s e percentuale di contesto occupato;
+- 🔧 **ogni tool chiamato**, con gli argomenti scelti dal modello, la durata
+  e l'inizio del risultato: è il modo per verificare che l'agente stia
+  leggendo i numeri veri invece di inventarli;
+- ❌ **gli errori** di modello e tool, senza far cadere la chat;
+- un **riepilogo per turno** e uno **di sessione** (turni, chiamate, tool più
+  usati, token totali, picco di contesto).
+
+La percentuale di contesto si basa su `VLLM_MAX_MODEL_LEN` nel `.env`, che
+deve corrispondere al `--max-model-len` con cui hai avviato l'app AI Deploy.
+In produzione la traccia resta spenta: le annotazioni negli orchestratori
+sono no-op finché nessuno la attiva, quindi `server.py` non cambia.
 
 ## Struttura
 
@@ -99,7 +123,7 @@ agents/            llm.py (client vLLM/OVH) · agente_cliente · agente_normativ
                    agente_portafoglio · registry · orchestrator (gestore) ·
                    orchestrator_clienti (per-sessione)
 tools/             db.py · dkv_tools.py (per-cliente, fabbrica) · rag.py (ChromaDB) ·
-                   portafoglio_tools.py (interni)
+                   portafoglio_tools.py (interni) · tracing.py (log delle chat)
 scripts/           esplora_excel · carica_dkv · test_vllm · indicizza_normativa ·
                    test_normativa
 config/            dkv_mapping.yml · regole_servizi.yml · agents_config.yml (interno) ·

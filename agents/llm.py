@@ -25,13 +25,20 @@ load_dotenv()  # legge il file .env
 MODELLO_DEFAULT = "Qwen/Qwen3.6-35B-A3B"
 
 
-def costruisci_llm(ruolo: str = "subagente", temperature: float = 0) -> ChatOpenAI:
-    """Ruoli: "subagente" (default) o "orchestratore". Con il motore unico i
-    due ruoli coincidono; con due app ognuno legge le sue variabili .env."""
+def config_ruolo(ruolo: str = "subagente") -> tuple[str, str]:
+    """(url, modello) per un ruolo, con fallback sulla configurazione a
+    motore unico. Ruoli: "subagente" (default) o "orchestratore"."""
     suffisso = "_ORCHESTRATORE" if ruolo == "orchestratore" else "_SUBAGENTI"
     url = os.environ.get(f"VLLM_URL{suffisso}") or os.environ["VLLM_URL"]
     modello = (os.environ.get(f"VLLM_MODEL{suffisso}")
                or os.environ.get("VLLM_MODEL", MODELLO_DEFAULT))
+    return url, modello
+
+
+def costruisci_llm(ruolo: str = "subagente", temperature: float = 0) -> ChatOpenAI:
+    """Con il motore unico i due ruoli coincidono; con due app ognuno legge
+    le sue variabili .env."""
+    url, modello = config_ruolo(ruolo)
     return ChatOpenAI(
         model=modello,
         base_url=url,

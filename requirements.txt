@@ -12,3 +12,4 @@ uvicorn>=0.30
 chromadb>=1.0
 sentence-transformers>=3.0
 pypdf>=4.0
+rich>=13.0
