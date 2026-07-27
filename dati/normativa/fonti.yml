@@ -5,13 +5,46 @@
 #
 # La data serve anche al cliente: l'agente segnala i documenti datati.
 # Formato data: AAAA-MM-GG (o solo AAAA se non sai il giorno).
+# ── Esempi: decommenta e adatta ──
+# "CELEX_02006R0561-20241231_IT_TXT.md":
+#   titolo: "Regolamento (CE) n. 1072/2009 — accesso al mercato del trasporto internazionale su strada"
+#   fonte: "Gazzetta ufficiale dell'Unione europea"
+#   data: "2009-10-21"
+# "circolare_cabotaggio_2026.pdf":
+#   titolo: "Circolare MIT — chiarimenti sul cabotaggio stradale"
+#   fonte: "Ministero delle Infrastrutture e dei Trasporti"
+#   data: "2026-02-10"
+
 documenti:
-  # ── Esempi: decommenta e adatta ──
-  # "regolamento_ce_1072_2009.pdf":
-  #   titolo: "Regolamento (CE) n. 1072/2009 — accesso al mercato del trasporto internazionale su strada"
-  #   fonte: "Gazzetta ufficiale dell'Unione europea"
-  #   data: "2009-10-21"
-  # "circolare_cabotaggio_2026.pdf":
-  #   titolo: "Circolare MIT — chiarimenti sul cabotaggio stradale"
-  #   fonte: "Ministero delle Infrastrutture e dei Trasporti"
-  #   data: "2026-02-10"
+  "CELEX_02006R0561-20241231_IT_TXT.md":
+    titolo: "REGOLAMENTO (CE) n. 561/2006 DEL PARLAMENTO EUROPEO E DEL CONSIGLIO del 15 marzo 2006"
+    fonte: "Commissione europea – EUR-Lex"
+    data: "2024-12-31"
+  "CELEX_02014R0165-20241231_IT_TXT.md":
+    titolo: "REGOLAMENTO (UE) N. 165/2014 DEL PARLAMENTO EUROPEO E DEL CONSIGLIO del 4 febbraio 2014"
+    fonte: "Commissione europea – EUR-Lex"
+    data: "2024-12-31"
+  "OJ_L_202401258_IT_TXT.md":
+    titolo: "REGOLAMENTO (UE) 2024/1258 DEL PARLAMENTO EUROPEO E DEL CONSIGLIO del 24 aprile 2024"
+    fonte: "Commissione europea – EUR-Lex"
+    data: "2024-05-02"
+  "CELEX_52024DC0309_IT_TXT.md":
+    titolo: "RELAZIONE DELLA COMMISSIONE AL PARLAMENTO EUROPEO E AL CONSIGLIO"
+    fonte: "Commissione europea – EUR-Lex"
+    data: "2024-07-23"
+  "CELEX_02009R1071-20220221_IT_TXT.md":
+    titolo: "REGOLAMENTO (CE) n. 1071/2009 DEL PARLAMENTO EUROPEO E DEL CONSIGLIO del 21 ottobre 2009"
+    fonte: "Commissione europea – EUR-Lex"
+    data: "2022-02-21"
+  "CELEX_02009R1072-20220221_IT_TXT.md":
+    titolo: "REGOLAMENTO (CE) N. 1072/2009 DEL PARLAMENTO EUROPEO E DEL CONSIGLIO del 21 ottobre 2009"
+    fonte: "Commissione europea – EUR-Lex"
+    data: "2022-02-21"
+  "CELEX_32020L1057_IT_TXT.md":
+    titolo: "DIRETTIVA (UE) 2020/1057 DEL PARLAMENTO EUROPEO E DEL CONSIGLIO del 15 luglio 2020"
+    fonte: "Commissione europea – EUR-Lex"
+    data: "2020-07-31"
+  "CELEX_32020R1055_IT_TXT.md":
+    titolo: "REGOLAMENTO (UE) 2020/1055 DEL PARLAMENTO EUROPEO E DEL CONSIGLIO del 15 luglio 2020"
+    fonte: "Commissione europea – EUR-Lex"
+    data: "2020-07-31"
