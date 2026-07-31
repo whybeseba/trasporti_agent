@@ -209,14 +209,25 @@ class Traccia(BaseCallbackHandler):
 
     # ── annotazioni degli orchestratori ──────────────────────────────────
 
-    def router_deciso(self, scelta: str, disponibili=None) -> None:
+    def router_deciso(self, incarichi: list, disponibili=None) -> None:
+        """incarichi: [{"specialista", "domanda"}] — vuoto = risposta diretta."""
         elenco = f" [dim](tra: {', '.join(disponibili)})[/dim]" if disponibili else ""
-        if scelta == "nessuno":
+        if not incarichi:
             self._stampa(f"   [magenta]🧭 nessuno specialista:[/magenta] "
                          f"risponde l'orchestratore{elenco}")
-        else:
+        elif len(incarichi) == 1:
+            i = incarichi[0]
+            sotto = (f" [dim]· «{escape(_taglia(i['domanda'], 90))}»[/dim]"
+                     if i.get("domanda") else "")
             self._stampa(f"   [magenta]🧭 specialista scelto:[/magenta] "
-                         f"[bold cyan]{escape(scelta)}[/bold cyan]{elenco}")
+                         f"[bold cyan]{escape(i['specialista'])}[/bold cyan]"
+                         f"{sotto}{elenco}")
+        else:
+            self._stampa(f"   [magenta]🧭 domanda scomposta in "
+                         f"{len(incarichi)} incarichi in parallelo:[/magenta]{elenco}")
+            for i in incarichi:
+                self._stampa(f"      → [bold cyan]{escape(i['specialista'])}"
+                             f"[/bold cyan]: [dim]«{escape(_taglia(i.get('domanda') or '(domanda intera)', 90))}»[/dim]")
 
     def specialista_inizio(self, nome: str) -> None:
         self.attore = nome
@@ -298,9 +309,9 @@ def pannello_avvio(titolo: str, dettagli: dict[str, str]) -> None:
     console.print(Panel(righe, title=titolo, border_style="cyan", expand=False))
 
 
-def router_deciso(scelta: str, disponibili=None) -> None:
+def router_deciso(incarichi: list, disponibili=None) -> None:
     if _corrente:
-        _corrente.router_deciso(scelta, disponibili)
+        _corrente.router_deciso(incarichi, disponibili)
 
 
 def specialista_inizio(nome: str) -> None:

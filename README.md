@@ -98,8 +98,10 @@ Adminer su `http://localhost:8081`.
 `chat_test.py` e `chat_orchestratore.py` mostrano in tempo reale cosa succede
 dentro il sistema (`tools/tracing.py`, un callback handler LangChain + `rich`):
 
-- 🧭 **la scelta del router**: quale specialista prende in carico la domanda,
-  o se risponde direttamente l'orchestratore;
+- 🧭 **la scelta del router**: quale specialista prende in carico la domanda
+  — o quali, quando la domanda ne tocca più d'uno: viene scomposta in
+  sotto-domande eseguite **in parallelo** e poi ricomposta in un'unica
+  risposta; oppure se risponde direttamente l'orchestratore;
 - 🤖 **chi sta lavorando** in ogni momento — orchestratore o un sub-agente;
 - 🧠 **ogni chiamata al modello** mentre è in corso ("sta pensando…"), poi
   con durata, modello effettivamente usato, token in ingresso e generati,
