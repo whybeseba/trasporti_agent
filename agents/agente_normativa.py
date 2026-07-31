@@ -7,21 +7,25 @@ from datetime import date
 from pathlib import Path
 
 from langchain.agents import create_agent
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 
 from agents.llm import costruisci_llm
-from tools.rag import cerca_normativa as _cerca
+from tools.rag import cerca_normativa_multi as _cerca
 
 
 def costruisci_agente_normativa():
 
+    # `config` è iniettato da LangChain (il modello non lo vede): serve a far
+    # comparire nella traccia anche la chiamata che genera le riformulazioni.
     @tool
-    def cerca_normativa(domanda: str) -> str:
+    def cerca_normativa(domanda: str, config: RunnableConfig) -> str:
         """Cerca nei testi ufficiali di norme e circolari dell'autotrasporto
         (cabotaggio, distacco dei conducenti, tempi di guida e riposo,
         documenti di trasporto...) i passaggi più pertinenti alla domanda.
-        Restituisce gli estratti con titolo, fonte e data del documento."""
-        risultati = _cerca(domanda)
+        Riformula da solo la domanda in più varianti e interroga il corpus
+        con tutte, restituendo i passaggi migliori con titolo, fonte e data."""
+        risultati = _cerca(domanda, config=config)
         if not risultati:
             return ("Nessun passaggio pertinente trovato nel corpus normativo. "
                     "NON rispondere a memoria: se anche una seconda ricerca "

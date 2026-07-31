@@ -131,20 +131,33 @@ eventuali `⚠️` (file non nel manifest, PDF senza testo).
 
 ## Parte 5 — Collaudo
 
-**Prima la ricerca da sola** (senza modello di mezzo — così se qualcosa non
-va sai subito se il problema è l'indice o l'agente):
+> 📖 **Ricerca multi-query:** il linguaggio di chi chiede ("quante ore può
+> guidare il mio autista?") e quello delle norme ("periodo di guida
+> giornaliero") spesso non si somigliano, e la ricerca per significato ne
+> soffre. Per questo il tool dell'agente non interroga il database una volta
+> sola: chiede prima al motore alcune **riformulazioni** della domanda col
+> lessico tecnico-giuridico, interroga il corpus con tutte le varianti e
+> **fonde le classifiche** (Reciprocal Rank Fusion): un passaggio trovato da
+> più riformulazioni è un segnale forte di pertinenza e sale in cima.
+
+**Prima la ricerca da sola** (senza l'agente di mezzo — così se qualcosa non
+va sai subito se il problema è la ricerca o la generazione):
 
 ```bash
-python -m scripts.test_normativa "quanti trasporti di cabotaggio posso fare in Francia?"
+python -m scripts.test_normativa "quante ore può guidare il mio autista in un giorno?"
 ```
 
-Devi vedere i passaggi trovati, ognuno con titolo, fonte, data e una
-**distanza** (più bassa = più pertinente). I passaggi oltre la soglia di
-pertinenza (`SOGLIA_DISTANZA` in `tools/rag.py`, default 0.7) sono marcati
-"SCARTATO": **all'agente non arrivano proprio** — passaggi fuori tema in mano
-al modello sono l'innesco classico delle risposte inventate. Se lo script
-scarta estratti che a te sembrano pertinenti, alza la soglia; se tutti i
-risultati sono oltre soglia, il corpus non copre la domanda.
+Lo script mostra l'intero percorso: le **riformulazioni** generate dal
+motore, poi la classifica fusa — per ogni passaggio titolo, fonte, data, la
+**distanza** (più bassa = più pertinente) e **da quante interrogazioni è
+stato trovato**. I passaggi oltre la soglia di pertinenza (`SOGLIA_DISTANZA`
+in `tools/rag.py`, default 0.7) sono marcati "SCARTATO": **all'agente non
+arrivano proprio** — passaggi fuori tema in mano al modello sono l'innesco
+classico delle risposte inventate. Se lo script scarta estratti che a te
+sembrano pertinenti, alza la soglia; se tutti i risultati sono oltre soglia,
+il corpus non copre la domanda. Nota: per le riformulazioni serve il motore
+vLLM acceso; se è spento lo script te lo dice e prosegue con la sola domanda
+originale.
 
 **Poi l'agente completo**, impersonando un cliente:
 

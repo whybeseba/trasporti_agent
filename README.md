@@ -124,8 +124,9 @@ sono no-op finché nessuno la attiva, quindi `server.py` non cambia.
 agents/            llm.py (client vLLM/OVH) · agente_cliente · agente_normativa ·
                    agente_portafoglio · registry · orchestrator (gestore) ·
                    orchestrator_clienti (per-sessione)
-tools/             db.py · dkv_tools.py (per-cliente, fabbrica) · rag.py (ChromaDB) ·
-                   portafoglio_tools.py (interni) · tracing.py (log delle chat)
+tools/             db.py · dkv_tools.py (per-cliente, fabbrica) · rag.py (ChromaDB,
+                   ricerca multi-query) · portafoglio_tools.py (interni) ·
+                   tracing.py (log delle chat)
 scripts/           esplora_excel · carica_dkv · test_vllm · indicizza_normativa ·
                    test_normativa
 config/            dkv_mapping.yml · regole_servizi.yml · agents_config.yml (interno) ·
