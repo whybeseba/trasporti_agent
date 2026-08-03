@@ -187,11 +187,12 @@ agents/            llm.py (scelta del motore + vLLM) · llm_anthropic.py (Claude
                    agente_cliente · agente_normativa · agente_portafoglio ·
                    registry · orchestrator (gestore) · orchestrator_clienti
 chat_comune.py     il ciclo delle chat, condiviso dai due motori
-tools/             db.py · dkv_tools.py (per-cliente, fabbrica) · rag.py (ChromaDB,
+tools/             db.py (schema + migrazioni) · dkv_tools.py (per-cliente, fabbrica) ·
+                   profilo_tools.py (profilo azienda) · rag.py (ChromaDB,
                    ricerca multi-query) · portafoglio_tools.py (interni) ·
                    tracing.py (log delle chat) · costi.py (stima prezzi API)
-scripts/           esplora_excel · carica_dkv · test_vllm · indicizza_normativa ·
-                   test_normativa · conta_token (count_tokens Anthropic)
+scripts/           esplora_excel · carica_dkv · migra_db · test_vllm ·
+                   indicizza_normativa · test_normativa · conta_token
 config/            dkv_mapping.yml · regole_servizi.yml · agents_config.yml (interno) ·
                    agents_clienti.yml (team clienti) · prompts/
 dati/excel_dkv/    gli export DKV (mai su git)
@@ -202,6 +203,40 @@ chat_orchestratore.py        chat interna del gestore
 chat_orchestratore_anthropic.py  la stessa, sui modelli Claude
 server.py          API di sviluppo (127.0.0.1, da eliminare in Fase 3)
 ```
+
+## Il profilo dell'azienda cliente (persistente)
+
+Quattro informazioni che non stanno nell'export DKV ma cambiano la risposta
+corretta — soprattutto sulla normativa: **conto terzi o conto proprio**,
+**anche estero o solo Italia**, **il trasporto è l'attività principale**,
+**massa massima a pieno carico**. Vivono come colonne nullable su `clienti`
+(`tools/profilo_tools.py`), dove `NULL` significa «non ancora saputo», che è
+diverso da «no».
+
+Come funziona in chat:
+
+- si raccolgono **una alla volta e anche in sessioni diverse**: quello che è
+  registrato non viene più richiesto;
+- l'orchestratore rilegge il profilo **a ogni turno**, lo usa per smistare e
+  lo **inoltra agli specialisti marcati `riceve_profilo: true`** nel registro
+  (oggi la normativa, che lo usa per mirare la ricerca nel corpus e per dire
+  quali norme si applicano a quel cliente);
+- quando il cliente dichiara uno di questi dati, anche di sfuggita, il router
+  manda il messaggio alla risposta diretta, che ha i tool del profilo e lo
+  **registra subito**;
+- chiedere è consentito ma con misura: una domanda per volta, mai in apertura,
+  mai come questionario, e dicendo perché serve quando è essenziale.
+
+**Dopo l'aggiornamento del codice va migrato il database** (aggiunge le
+colonne a una tabella già esistente; è idempotente):
+
+```bash
+python -m scripts.migra_db
+```
+
+I tool nascono dalla stessa fabbrica ancorata al `cliente_id` usata per i dati
+DKV, e le uniche colonne scrivibili sono quelle dichiarate in
+`tools/db.py::COLONNE_PROFILO` — mai un nome deciso dal modello.
 
 ## Sicurezza — i punti fermi
 

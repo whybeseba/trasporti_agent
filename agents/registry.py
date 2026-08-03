@@ -45,5 +45,8 @@ def carica_agenti_clienti(cliente_id: int, nome_cliente: str,
                 _cache_condivisi[nome] = _costruttore(info)()
                 print(f"✅ Agente condiviso caricato: {nome}")
             agente = _cache_condivisi[nome]
-        agenti[nome] = {"agente": agente, "descrizione": info["descrizione"]}
+        agenti[nome] = {"agente": agente, "descrizione": info["descrizione"],
+                        # a chi va inoltrato il profilo dell'azienda insieme
+                        # alla domanda (di norma: chi risponde su normativa)
+                        "riceve_profilo": bool(info.get("riceve_profilo"))}
     return agenti

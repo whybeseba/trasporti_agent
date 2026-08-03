@@ -18,6 +18,10 @@ agenti:
 
   normativa:
     per_cliente: false
+    # riceve il profilo dell'azienda insieme alla domanda: conto terzi o
+    # proprio, estero, massa massima cambiano le norme applicabili e le
+    # parole con cui cercarle nel corpus
+    riceve_profilo: true
     descrizione: >
       Norme e regole dell'autotrasporto: cabotaggio, distacco dei
       conducenti, tempi di guida e riposo, documenti di trasporto;

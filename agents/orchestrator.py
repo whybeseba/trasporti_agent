@@ -14,7 +14,11 @@ def costruisci_orchestratore():
         AGENTI,
         costruisci_llm("orchestratore"),
         intro_router=("Sei l'orchestratore del sistema interno di un gestore "
-                      "di servizi per aziende di trasporto."),
+                      "di servizi per aziende di trasporto.\n"
+                      "Non dare per scontato l'argomento: smista in base a "
+                      "ciò che è stato davvero scritto."),
         prompt_diretta=("Sei l'assistente interno del gestore. Rispondi in "
-                        "italiano."),
+                        "italiano. Non dare per scontato ciò che non ti è "
+                        "stato detto e non supporre: se la richiesta è "
+                        "ambigua, chiedi la precisazione che ti serve."),
     )

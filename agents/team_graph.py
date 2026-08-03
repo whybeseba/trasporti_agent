@@ -66,16 +66,46 @@ def _leggi_incarichi(testo: str, nomi) -> list | None:
     return incarichi
 
 
+def _contenuto(messaggio) -> str:
+    """Il testo di un messaggio, sia esso un dict o un oggetto LangChain."""
+    if isinstance(messaggio, dict):
+        return str(messaggio.get("content", ""))
+    return str(getattr(messaggio, "content", ""))
+
+
 def costruisci_grafo_team(agenti: dict, llm, intro_router: str,
-                          prompt_diretta: str):
-    """agenti: registro già caricato {nome: {agente, descrizione}}.
-    intro_router / prompt_diretta: la voce del team (clienti o gestore)."""
+                          prompt_diretta: str, profilo=None,
+                          strumenti_diretti=None):
+    """agenti: registro già caricato {nome: {agente, descrizione, ...}}.
+    intro_router / prompt_diretta: la voce del team (clienti o gestore).
+    profilo: funzione senza argomenti che restituisce il profilo dell'azienda
+        cliente in forma testuale (None sul lato gestore, che non ne ha uno).
+        Viene riletto a ogni turno, così l'orchestratore lavora sempre sui
+        dati aggiornati e gli specialisti marcati `riceve_profilo` nel
+        registro se lo vedono arrivare insieme alla sotto-domanda.
+    strumenti_diretti: tool per il nodo di risposta diretta (per i clienti:
+        lettura e aggiornamento del profilo). Con questi il nodo diventa un
+        piccolo agente, capace quindi di registrare ciò che il cliente
+        racconta di sé."""
     prompt_router = _prompt_router(agenti, intro_router)
+    agente_diretto = None
+    if strumenti_diretti:
+        from langchain.agents import create_agent
+        agente_diretto = create_agent(llm, tools=strumenti_diretti,
+                                      system_prompt=prompt_diretta)
 
     # I nodi ricevono `config` e lo passano alle chiamate annidate: è ciò che
     # fa arrivare i callback (la traccia) anche dentro i sub-agenti.
     def router(state: StatoTeam, config):
-        r = llm.invoke([{"role": "system", "content": prompt_router}]
+        sistema = prompt_router
+        if profilo:
+            sistema += (
+                "\n\n" + profilo() +
+                "\nSe l'ultimo messaggio contiene o corregge una di queste "
+                "informazioni sull'azienda (es. «faccio conto terzi», «i miei "
+                "mezzi sono da 40 tonnellate», «viaggiamo solo in Italia»), "
+                "rispondi con [] : la registra l'assistente.")
+        r = llm.invoke([{"role": "system", "content": sistema}]
                        + state["messages"], config)
         incarichi = _leggi_incarichi(r.content, set(agenti))
         if incarichi is None:      # niente JSON: ripiego a specialista singolo
@@ -93,13 +123,24 @@ def costruisci_grafo_team(agenti: dict, llm, intro_router: str,
                 for i in state["incarichi"]]
 
     def _nodo_specialista(nome: str):
+        riceve_profilo = bool(agenti[nome].get("riceve_profilo")) and profilo
+
         def esegui(state, config):
             # allo specialista arriva la storia con l'ultima domanda
             # SOSTITUITA dalla sua sotto-domanda: contesto intero, compito suo
             messaggi = list(state["messages"])
-            if state.get("domanda"):
-                messaggi = messaggi[:-1] + [{"role": "user",
-                                             "content": state["domanda"]}]
+            domanda = state.get("domanda") or ""
+            if riceve_profilo:
+                # il profilo viaggia con la domanda: allo specialista serve
+                # per mirare la ricerca e per capire quali norme si applicano
+                base = domanda or _contenuto(messaggi[-1])
+                domanda = (f"{base}\n\n{profilo(con_domande=False)}\n"
+                           "Usa questi dati per contestualizzare la risposta e "
+                           "non richiederli. Se per rispondere correttamente te "
+                           "ne serve uno che risulta «non ancora indicato», "
+                           "dillo e chiedilo invece di dare per scontato.")
+            if domanda:
+                messaggi = messaggi[:-1] + [{"role": "user", "content": domanda}]
             tracing.specialista_inizio(nome)
             try:
                 ris = agenti[nome]["agente"].invoke({"messages": messaggi}, config)
@@ -136,6 +177,12 @@ def costruisci_grafo_team(agenti: dict, llm, intro_router: str,
     def risposta_diretta(state: StatoTeam, config):
         tracing.specialista_inizio("orchestratore · risposta diretta")
         try:
+            if agente_diretto is not None:
+                # ha i tool del profilo: può registrare ciò che il cliente
+                # racconta di sé e sapere cosa manca ancora
+                ris = agente_diretto.invoke({"messages": state["messages"]},
+                                            config)
+                return {"messages": [ris["messages"][-1]]}
             r = llm.invoke([{"role": "system", "content": prompt_diretta}]
                            + state["messages"], config)
         finally:

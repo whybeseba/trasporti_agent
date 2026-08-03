@@ -27,7 +27,13 @@ def crea_tabelle() -> None:
         nome_dkv        TEXT UNIQUE NOT NULL,
         ragione_sociale TEXT,
         email           TEXT,
-        attivo          BOOLEAN DEFAULT TRUE
+        attivo          BOOLEAN DEFAULT TRUE,
+        -- profilo dell'azienda, raccolto in chat una domanda alla volta:
+        -- NULL = non ancora saputo (diverso da "no")
+        conto_terzi                   BOOLEAN,
+        internazionale                BOOLEAN,
+        trasporto_attivita_principale BOOLEAN,
+        massa_massima_t               NUMERIC
     );
     CREATE TABLE IF NOT EXISTS dkv_mensile (
         cliente_id          INTEGER REFERENCES clienti(id),
@@ -49,6 +55,31 @@ def crea_tabelle() -> None:
     """
     with engine.begin() as con:
         con.execute(text(ddl))
+    migra()
+
+
+# Colonne del profilo cliente: nome → tipo SQL. Sono anche l'elenco delle
+# uniche colonne che i tool del profilo possono scrivere.
+COLONNE_PROFILO = {
+    "conto_terzi": "BOOLEAN",
+    "internazionale": "BOOLEAN",
+    "trasporto_attivita_principale": "BOOLEAN",
+    "massa_massima_t": "NUMERIC",
+}
+
+
+def migra() -> None:
+    """Porta un database già esistente allo schema corrente.
+
+    `crea_tabelle` usa CREATE TABLE IF NOT EXISTS, che su una tabella già
+    creata non aggiunge nulla: le colonne nuove vanno aggiunte qui.
+    Idempotente — si può rilanciare quante volte si vuole.
+    Uso manuale:  python -m scripts.migra_db"""
+    with engine.begin() as con:
+        for nome, tipo in COLONNE_PROFILO.items():
+            # nomi e tipi vengono da questa costante, mai da input esterno
+            con.execute(text(
+                f"ALTER TABLE clienti ADD COLUMN IF NOT EXISTS {nome} {tipo}"))
 
 
 def salva_conversazione(cliente_id: int, domanda: str, risposta: str,
