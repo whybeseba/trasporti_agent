@@ -115,8 +115,10 @@ def genera_riformulazioni(domanda: str, quante: int = N_RIFORMULAZIONI,
          f"Domanda: {domanda}"},
     ]
     try:
+        from tools.messaggi import testo_contenuto
         r = costruisci_llm("subagente").invoke(messaggi, config)
-        return _estrai_righe(r.content, quante, domanda)
+        # con i modelli che ragionano `content` è un elenco di blocchi
+        return _estrai_righe(testo_contenuto(r.content), quante, domanda)
     except Exception:
         return []
 

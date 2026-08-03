@@ -11,6 +11,7 @@ import yaml
 
 from agents.llm import descrizione_motore
 from tools import tracing
+from tools.messaggi import testo_messaggio
 
 
 def _riga_motori() -> dict[str, str]:
@@ -46,7 +47,9 @@ def _ciclo(traccia, agente, etichetta: str, invito: str, salva) -> None:
                 traccia.console.print(f"[red]❌ errore durante la risposta:[/red] {e}\n")
                 continue
             storia = risultato["messages"]
-            risposta = storia[-1].content
+            # la storia conserva i messaggi originali (blocchi compresi, come
+            # vanno rimandati al modello); qui serve solo il testo da mostrare
+            risposta = testo_messaggio(storia[-1])
             traccia.fine_turno(risposta)
             salva(domanda, risposta)
     finally:

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from agents.orchestrator_clienti import costruisci_orchestratore_cliente
 from tools.db import query, salva_conversazione
+from tools.messaggi import testo_messaggio
 
 app = FastAPI(title="Motore DKV — API di sviluppo")
 _cache_agenti = {}
@@ -26,6 +27,6 @@ def chat_cliente(cliente_id: int, d: Domanda):
             cliente_id, df.iloc[0, 0])
     ris = _cache_agenti[cliente_id].invoke(
         {"messages": [{"role": "user", "content": d.domanda}]})
-    risposta = ris["messages"][-1].content
+    risposta = testo_messaggio(ris["messages"][-1])
     salva_conversazione(cliente_id, d.domanda, risposta, canale="api-dev")
     return {"risposta": risposta}

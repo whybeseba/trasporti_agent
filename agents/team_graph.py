@@ -19,6 +19,7 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.types import Send
 
 from tools import tracing
+from tools.messaggi import testo_contenuto, testo_messaggio
 
 
 class StatoTeam(MessagesState):
@@ -66,13 +67,6 @@ def _leggi_incarichi(testo: str, nomi) -> list | None:
     return incarichi
 
 
-def _contenuto(messaggio) -> str:
-    """Il testo di un messaggio, sia esso un dict o un oggetto LangChain."""
-    if isinstance(messaggio, dict):
-        return str(messaggio.get("content", ""))
-    return str(getattr(messaggio, "content", ""))
-
-
 def costruisci_grafo_team(agenti: dict, llm, intro_router: str,
                           prompt_diretta: str, profilo=None,
                           strumenti_diretti=None):
@@ -107,9 +101,12 @@ def costruisci_grafo_team(agenti: dict, llm, intro_router: str,
                 "rispondi con [] : la registra l'assistente.")
         r = llm.invoke([{"role": "system", "content": sistema}]
                        + state["messages"], config)
-        incarichi = _leggi_incarichi(r.content, set(agenti))
+        # il modello può rispondere a blocchi (pensiero + testo): qui serve
+        # il solo testo, altrimenti la ricerca del JSON riceve una lista
+        risposta = testo_contenuto(r.content)
+        incarichi = _leggi_incarichi(risposta, set(agenti))
         if incarichi is None:      # niente JSON: ripiego a specialista singolo
-            testo = r.content.strip().lower()
+            testo = risposta.strip().lower()
             nome = next((n for n in agenti if n in testo), None)
             incarichi = [{"specialista": nome, "domanda": ""}] if nome else []
         tracing.router_deciso(incarichi, list(agenti))
@@ -133,7 +130,7 @@ def costruisci_grafo_team(agenti: dict, llm, intro_router: str,
             if riceve_profilo:
                 # il profilo viaggia con la domanda: allo specialista serve
                 # per mirare la ricerca e per capire quali norme si applicano
-                base = domanda or _contenuto(messaggi[-1])
+                base = domanda or testo_messaggio(messaggi[-1])
                 domanda = (f"{base}\n\n{profilo(con_domande=False)}\n"
                            "Usa questi dati per contestualizzare la risposta e "
                            "non richiederli. Se per rispondere correttamente te "
@@ -146,7 +143,7 @@ def costruisci_grafo_team(agenti: dict, llm, intro_router: str,
                 ris = agenti[nome]["agente"].invoke({"messages": messaggi}, config)
             finally:
                 tracing.specialista_fine()
-            return {"risposte": [(nome, ris["messages"][-1].content)]}
+            return {"risposte": [(nome, testo_messaggio(ris["messages"][-1]))]}
         return esegui
 
     def componi(state: StatoTeam, config):
@@ -156,7 +153,7 @@ def costruisci_grafo_team(agenti: dict, llm, intro_router: str,
             return {"messages": [AIMessage(content=risposte[0][1])]}
 
         parti = "\n\n".join(f"[{n}]\n{r}" for n, r in risposte)
-        domanda = state["messages"][-1].content
+        domanda = testo_messaggio(state["messages"][-1])
         tracing.specialista_inizio("orchestratore · composizione")
         try:
             r = llm.invoke([
