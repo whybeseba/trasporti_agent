@@ -27,6 +27,9 @@ def _ciclo(traccia, agente, etichetta: str, invito: str, salva) -> None:
     turno = 0
     try:
         while True:
+            # niente animazioni accese mentre l'utente scrive: un display
+            # rimasto attivo renderebbe invisibile ciò che digita
+            traccia.pausa()
             domanda = input(f"{invito}: ").strip()
             if not domanda:
                 continue

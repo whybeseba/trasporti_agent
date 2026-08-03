@@ -16,6 +16,7 @@ cambia nulla.
 Usato da chat_test.py e chat_orchestratore.py.
 """
 import os
+import threading
 import time
 from collections import Counter, defaultdict
 
@@ -85,23 +86,74 @@ def _estrai_token(risposta) -> tuple[int, int, int, int]:
 
 class _Attesa:
     """Lo spinner «sta pensando…». Su un terminale vero è animato; se l'output
-    è rediretto su file si limita a non disturbare."""
+    è rediretto su file si limita a non disturbare.
+
+    ⚠️ Deve essere a prova di concorrenza: da quando il router scompone la
+    domanda, più specialisti girano IN PARALLELO e le loro chiamate al modello
+    aprono e chiudono l'attesa da thread diversi. Senza lock due thread
+    possono lasciare acceso un display di rich che nessuno spegne più: lo
+    spinner resta appeso per sempre e, finché è attivo, si mangia ciò che
+    scrivi al prompt. Perciò: un solo spinner, un conteggio delle attese
+    aperte, un lock, e la possibilità di spegnere tutto d'autorità."""
 
     def __init__(self, console: Console):
         self.console = console
         self._stato = None
+        self._aperte = 0
+        self._ultima = ""
+        self._lock = threading.RLock()
+
+    def _testo(self) -> str:
+        if self._aperte > 1:
+            return (f"[dim]{self._aperte} chiamate al modello in "
+                    f"parallelo…[/dim]")
+        return self._ultima
 
     def avvia(self, testo: str) -> None:
-        self.ferma()
-        if not self.console.is_terminal:
-            return
-        try:
-            self._stato = self.console.status(testo, spinner="dots")
-            self._stato.start()
-        except Exception:
-            self._stato = None
+        with self._lock:
+            self._aperte += 1
+            self._ultima = testo
+            if not self.console.is_terminal:
+                return
+            if self._stato is not None:          # già acceso: aggiorna e basta
+                try:
+                    self._stato.update(self._testo())
+                except Exception:
+                    pass
+                return
+            nuovo = None
+            try:
+                nuovo = self.console.status(self._testo(), spinner="dots")
+                nuovo.start()
+                self._stato = nuovo
+            except Exception:
+                # non lasciare mai un display orfano acceso
+                if nuovo is not None:
+                    try:
+                        nuovo.stop()
+                    except Exception:
+                        pass
 
     def ferma(self) -> None:
+        """Chiude UNA attesa; lo spinner si spegne solo quando finiscono tutte."""
+        with self._lock:
+            self._aperte = max(0, self._aperte - 1)
+            if self._aperte == 0:
+                self._spegni()
+            elif self._stato is not None:
+                try:
+                    self._stato.update(self._testo())
+                except Exception:
+                    pass
+
+    def spegni_tutto(self) -> None:
+        """Rete di sicurezza: prima di leggere da tastiera e a fine turno,
+        così un'attesa rimasta appesa non blocca comunque il prompt."""
+        with self._lock:
+            self._aperte = 0
+            self._spegni()
+
+    def _spegni(self) -> None:
         if self._stato is not None:
             try:
                 self._stato.stop()
@@ -146,11 +198,19 @@ class Traccia(BaseCallbackHandler):
         self._t0_turno = time.perf_counter()
 
     def _stampa(self, testo: str, una_riga: bool = False) -> None:
-        self._attesa.ferma()
+        # Non tocca lo spinner: rich stampa sopra l'area animata, e con le
+        # chiamate in parallelo l'attesa la chiude solo chi l'ha aperta
+        # (on_llm_end / on_llm_error), altrimenti il conteggio si sfalsa.
         # una_riga: il risultato di un tool può essere una tabella lunga —
         # qui serve il colpo d'occhio, non il contenuto integrale.
         self.console.print(testo, no_wrap=una_riga,
                            overflow="ellipsis" if una_riga else None)
+
+    def pausa(self) -> None:
+        """Spegne qualunque attesa animata. Va chiamata prima di leggere da
+        tastiera: un display rimasto acceso renderebbe invisibile ciò che
+        l'utente scrive."""
+        self._attesa.spegni_tutto()
 
     # ── eventi del modello ───────────────────────────────────────────────
 
@@ -173,6 +233,7 @@ class Traccia(BaseCallbackHandler):
             f"({n_messaggi} messaggi → {escape(str(modello))})[/dim]")
 
     def on_llm_end(self, response, **kwargs):
+        self._attesa.ferma()
         dati = self._in_corso.pop(kwargs.get("run_id"), {})
         durata = time.perf_counter() - dati.get("t0", time.perf_counter())
         tok_in, tok_out, letti, scritti = _estrai_token(response)
@@ -214,6 +275,7 @@ class Traccia(BaseCallbackHandler):
             f"[{colore}]ctx {frazione:.0%}[/{colore}]")
 
     def on_llm_error(self, error, **kwargs):
+        self._attesa.ferma()
         self._in_corso.pop(kwargs.get("run_id"), None)
         self._stampa(f"   [red]❌ errore dal modello:[/red] {escape(_taglia(error))}")
 
@@ -276,6 +338,7 @@ class Traccia(BaseCallbackHandler):
     # ── turni e riepiloghi ───────────────────────────────────────────────
 
     def inizio_turno(self, numero: int, domanda: str, etichetta: str = "") -> None:
+        self._attesa.spegni_tutto()
         self._reset_turno()
         self.attore = "orchestratore"
         self.console.rule(f"[bold]Turno {numero}[/bold]"
@@ -284,6 +347,7 @@ class Traccia(BaseCallbackHandler):
         self.console.print("  [magenta]🧭 orchestratore · router[/magenta]")
 
     def fine_turno(self, risposta: str) -> None:
+        self._attesa.spegni_tutto()
         durata = time.perf_counter() - self._t0_turno
         self.turni += 1
         self.sessione_in += self.turno_in
@@ -305,6 +369,7 @@ class Traccia(BaseCallbackHandler):
             title="riepilogo turno", border_style="dim", expand=False))
 
     def riepilogo_sessione(self) -> None:
+        self._attesa.spegni_tutto()
         if not self.turni:
             return
         frazione = self.picco_contesto / self.max_contesto if self.max_contesto else 0
