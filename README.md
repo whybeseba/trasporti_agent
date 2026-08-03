@@ -24,7 +24,38 @@ secondo membro del team, l'**agente Normativa** (RAG su ChromaDB — setup del
 corpus in `Guida_Indicizzazione_Normativa.md`). `chat_test.py` e `server.py`
 passano già dall'orchestratore clienti, come farà il portale in Fase 3.
 
-## Prerequisito: il motore su AI Deploy acceso, con i flag per il tool calling
+## Due motori di inferenza: vLLM su OVH o API Anthropic
+
+Gli agenti, i tool, i prompt, i registri e gli orchestratori **non cambiano**:
+l'unico punto che sa quale motore gira è `agents/llm.py`.
+
+| | vLLM su OVH (default) | API Anthropic |
+|---|---|---|
+| Chat cliente | `python chat_test.py` | `python chat_test_anthropic.py` |
+| Chat gestore | `python chat_orchestratore.py` | `python chat_orchestratore_anthropic.py` |
+| Modello | `VLLM_MODEL` | `ANTHROPIC_MODEL` (default `claude-haiku-4-5`) |
+| Resto del sistema (server, script) | `MOTORE_AI=vllm` | `MOTORE_AI=anthropic` |
+
+Le quattro chat forzano il proprio motore, quindi si passa dall'uno all'altro
+semplicemente lanciando l'altro file; `MOTORE_AI` nel `.env` decide per tutto
+il resto. Cambiare modello Claude è una riga nel `.env`, o al volo:
+
+```bash
+ANTHROPIC_MODEL=claude-sonnet-5 python chat_test_anthropic.py
+```
+
+Si possono anche usare **modelli diversi per ruolo** (`ANTHROPIC_MODEL_ORCHESTRATORE`
+e `ANTHROPIC_MODEL_SUBAGENTI`): il router legge tutta la storia a ogni turno
+per scegliere uno specialista, ed è il candidato naturale al modello più
+economico.
+
+⚠️ **Prompt caching (`ANTHROPIC_CACHING`, attivo di default):** in chat la
+storia viene rimandata intera al modello a ogni messaggio, quindi senza cache
+si ripaga ogni volta tutto il passato; con la cache la parte già vista costa
+un decimo. Il riepilogo di sessione mostra quanti token sono stati riletti
+dalla cache: se è a zero, il caching non sta funzionando.
+
+## Prerequisito (solo motore vLLM): l'app AI Deploy accesa, con i flag per il tool calling
 
 I comandi `ovhai` aggiornati sono in **`Deploy_due_modelli_vLLM_AI_Deploy.md`**,
 che prevede due configurazioni:
@@ -115,22 +146,34 @@ dentro il sistema (`tools/tracing.py`, un callback handler LangChain + `rich`):
   contesto, la ripartizione dei token **per attore** (quale specialista
   consuma cosa) e una **stima di costo sull'API Anthropic**.
 
-### La stima dei costi (`tools/costi.py`)
+### I costi (`tools/costi.py`) — esatti su Anthropic, stimati su vLLM
 
-Serve a decidere il prezzo da fare ai clienti. Per ogni modello del listino
-mostra il costo della sessione in due scenari — **senza prompt caching → con
-caching** — più il costo per turno e per 1.000 turni.
+Serve a decidere il prezzo da fare ai clienti, e cambia natura col motore:
 
-Il caching è la voce che decide tutto: in chat la storia viene rimandata
-intera a ogni messaggio, quindi senza cache si ripaga ogni volta tutto il
-passato, mentre le riletture dalla cache costano un decimo. Nel confronto
-la quota ipotizzata di riletture è l'80% (`QUOTA_CACHE_TIPICA`).
+- **Motore Anthropic → costo esatto.** L'API riporta in ogni risposta i token
+  effettivamente fatturati, cache inclusa: il riepilogo mostra il costo reale
+  della sessione, per turno e per 1.000 turni, con la quota di input servita
+  dalla cache. Non è una stima.
+- **Motore vLLM → stima.** I token li conta il tokenizer di Qwen3, non quello
+  di Claude: il riepilogo confronta i modelli del listino nei due scenari
+  *senza caching → con caching* (quota ipotizzata: `QUOTA_CACHE_TIPICA`, 80%).
+  Utile per gli ordini di grandezza, non per un preventivo.
 
-⚠️ **È una stima, non un preventivo**: i token li conta il tokenizer di Qwen3
-(il modello su vLLM), non quello di Claude, e sullo stesso testo i due
-contano diversamente. Prima di fissare i prezzi, misura i prompt reali con
-l'endpoint `count_tokens` di Anthropic e verifica il listino (quello in
-`tools/costi.py` è di giugno 2026).
+**Per il numero esatto senza passare da una chat**, c'è l'endpoint
+`count_tokens` di Anthropic, che misura un prompt *prima* di inviarlo (conta
+solo l'input, non genera nulla):
+
+```bash
+python -m scripts.conta_token           # primo cliente in anagrafica, modello del .env
+python -m scripts.conta_token 1 claude-sonnet-5
+```
+
+Stampa quanto pesano davvero il system prompt, gli schemi dei tool e una
+domanda tipo — cioè la **parte fissa ricaricata a ogni messaggio**, che è
+esattamente ciò su cui agisce il prompt caching.
+
+Il listino in `tools/costi.py` è di giugno 2026 (Opus 5 $5/$25 per milione di
+token, Sonnet 5 $3/$15, Haiku 4.5 $1/$5): verificalo prima di fissare i prezzi.
 
 La percentuale di contesto si basa su `VLLM_MAX_MODEL_LEN` nel `.env`, che
 deve corrispondere al `--max-model-len` con cui hai avviato l'app AI Deploy.
@@ -140,20 +183,23 @@ sono no-op finché nessuno la attiva, quindi `server.py` non cambia.
 ## Struttura
 
 ```
-agents/            llm.py (client vLLM/OVH) · agente_cliente · agente_normativa ·
-                   agente_portafoglio · registry · orchestrator (gestore) ·
-                   orchestrator_clienti (per-sessione)
+agents/            llm.py (scelta del motore + vLLM) · llm_anthropic.py (Claude) ·
+                   agente_cliente · agente_normativa · agente_portafoglio ·
+                   registry · orchestrator (gestore) · orchestrator_clienti
+chat_comune.py     il ciclo delle chat, condiviso dai due motori
 tools/             db.py · dkv_tools.py (per-cliente, fabbrica) · rag.py (ChromaDB,
                    ricerca multi-query) · portafoglio_tools.py (interni) ·
                    tracing.py (log delle chat) · costi.py (stima prezzi API)
 scripts/           esplora_excel · carica_dkv · test_vllm · indicizza_normativa ·
-                   test_normativa
+                   test_normativa · conta_token (count_tokens Anthropic)
 config/            dkv_mapping.yml · regole_servizi.yml · agents_config.yml (interno) ·
                    agents_clienti.yml (team clienti) · prompts/
 dati/excel_dkv/    gli export DKV (mai su git)
 dati/normativa/    il corpus di norme/circolari + fonti.yml (mai su git)
 chat_test.py       collaudo cliente via orchestratore (funzionale + sicurezza §2.8)
-chat_orchestratore.py  chat interna del gestore
+chat_test_anthropic.py       la stessa chat sui modelli Claude
+chat_orchestratore.py        chat interna del gestore
+chat_orchestratore_anthropic.py  la stessa, sui modelli Claude
 server.py          API di sviluppo (127.0.0.1, da eliminare in Fase 3)
 ```
 

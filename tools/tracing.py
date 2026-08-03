@@ -27,7 +27,8 @@ try:
 except ImportError:  # pragma: no cover
     raise SystemExit("Manca la libreria 'rich': pip install -r requirements.txt")
 
-from tools.costi import QUOTA_CACHE_TIPICA, stima
+from tools.costi import (CAMBIO_EUR_USD, QUOTA_CACHE_TIPICA, costo_esatto,
+                         prezzi, stima)
 
 from langchain_core.callbacks import BaseCallbackHandler
 
@@ -58,19 +59,28 @@ def _colore_contesto(frazione: float) -> str:
     return "green" if frazione < 0.5 else ("yellow" if frazione < 0.8 else "red")
 
 
-def _estrai_token(risposta) -> tuple[int, int]:
-    """(token in ingresso, token generati) dalla risposta del modello.
-    Prova prima i metadati standard di LangChain, poi il formato OpenAI."""
+def _estrai_token(risposta) -> tuple[int, int, int, int]:
+    """(input, output, riletti da cache, scritti in cache) dalla risposta.
+
+    Col motore Anthropic questi sono i token ESATTI che l'API fattura: la
+    risposta li riporta, cache inclusa. Col motore vLLM le due voci di cache
+    restano a 0. `input_tokens` di LangChain comprende già i token di cache,
+    quindi il resto si ricava per differenza."""
     try:
         for generazioni in risposta.generations:
             for g in generazioni:
                 uso = getattr(getattr(g, "message", None), "usage_metadata", None)
                 if uso:
-                    return int(uso.get("input_tokens", 0)), int(uso.get("output_tokens", 0))
+                    dettagli = uso.get("input_token_details") or {}
+                    return (int(uso.get("input_tokens", 0)),
+                            int(uso.get("output_tokens", 0)),
+                            int(dettagli.get("cache_read", 0)),
+                            int(dettagli.get("cache_creation", 0)))
     except Exception:
         pass
     uso = (getattr(risposta, "llm_output", None) or {}).get("token_usage") or {}
-    return int(uso.get("prompt_tokens", 0)), int(uso.get("completion_tokens", 0))
+    return (int(uso.get("prompt_tokens", 0)),
+            int(uso.get("completion_tokens", 0)), 0, 0)
 
 
 class _Attesa:
@@ -123,6 +133,11 @@ class Traccia(BaseCallbackHandler):
         # chi consuma i token: orchestratore, router, ogni specialista
         self.per_attore: dict[str, dict] = defaultdict(
             lambda: {"in": 0, "out": 0, "chiamate": 0})
+        # token di cache (solo motore Anthropic) e costo esatto in dollari
+        self.cache_lette = self.cache_scritte = 0
+        self.costo_usd = 0.0
+        self.costo_calcolabile = False   # True appena un modello è in listino
+        self.modelli_visti: Counter = Counter()
 
     def _reset_turno(self) -> None:
         self.turno_in = self.turno_out = 0
@@ -160,7 +175,7 @@ class Traccia(BaseCallbackHandler):
     def on_llm_end(self, response, **kwargs):
         dati = self._in_corso.pop(kwargs.get("run_id"), {})
         durata = time.perf_counter() - dati.get("t0", time.perf_counter())
-        tok_in, tok_out = _estrai_token(response)
+        tok_in, tok_out, letti, scritti = _estrai_token(response)
 
         self.turno_llm += 1
         self.turno_in += tok_in
@@ -172,6 +187,18 @@ class Traccia(BaseCallbackHandler):
         contesto = tok_in + tok_out
         self.turno_contesto = max(self.turno_contesto, contesto)
         self.picco_contesto = max(self.picco_contesto, contesto)
+
+        # costo esatto: possibile solo quando il modello è in listino
+        # (cioè col motore Anthropic); qui tok_in include già la cache
+        self.cache_lette += letti
+        self.cache_scritte += scritti
+        modello = dati.get("modello", "")
+        self.modelli_visti[modello] += 1
+        usd = costo_esatto(modello, max(0, tok_in - letti - scritti), tok_out,
+                           letti, scritti)
+        if usd is not None:
+            self.costo_usd += usd
+            self.costo_calcolabile = True
 
         # sotto i 2 decimi di secondo la velocità non è una misura, è rumore
         velocita = f" · {tok_out / durata:.0f} tok/s" if durata > 0.2 and tok_out else ""
@@ -321,8 +348,12 @@ class Traccia(BaseCallbackHandler):
         self.console.print(t)
 
     def _tabella_costi(self) -> None:
-        """Quanto costerebbe questa stessa sessione sull'API Anthropic."""
+        """Il costo di questa sessione: esatto col motore Anthropic (i token
+        li riporta l'API), stimato col motore vLLM."""
         if not (self.sessione_in or self.sessione_out):
+            return
+        if self.costo_calcolabile:
+            self._pannello_costo_reale()
             return
         t = Table(title="stima costi sull'API Anthropic (€)",
                   border_style="dim", expand=False)
@@ -344,9 +375,39 @@ class Traccia(BaseCallbackHandler):
             f"caching (quota ipotizzata {QUOTA_CACHE_TIPICA:.0%}); «a turno» e "
             f"«1.000 turni» usano il valore con caching.\n"
             f"Stima indicativa: i token li conta il tokenizer di Qwen3, non "
-            f"quello di Claude. Per un preventivo vero: endpoint count_tokens "
-            f"di Anthropic sui prompt reali. Listino giugno 2026, "
-            f"vedi tools/costi.py.[/dim]")
+            f"quello di Claude. Per il numero esatto: "
+            f"python -m scripts.conta_token (endpoint count_tokens di "
+            f"Anthropic). Listino giugno 2026, vedi tools/costi.py.[/dim]")
+
+    def _pannello_costo_reale(self) -> None:
+        """Costo effettivo: i token sono quelli fatturati dall'API Anthropic."""
+        eur = self.costo_usd * CAMBIO_EUR_USD
+        per_turno = eur / self.turni if self.turni else 0
+        modelli = ", ".join(f"{prezzi(m)['nome'] if prezzi(m) else m} ({n})"
+                            for m, n in self.modelli_visti.most_common())
+        cache_tot = self.cache_lette + self.cache_scritte
+        quota = self.cache_lette / self.sessione_in if self.sessione_in else 0
+        if cache_tot:
+            riga_cache = (f"cache: {_num(self.cache_lette)} token riletti "
+                          f"(un decimo del prezzo) · "
+                          f"{_num(self.cache_scritte)} scritti\n"
+                          f"quota di input servita dalla cache: "
+                          f"[green]{quota:.0%}[/green]")
+        else:
+            riga_cache = ("[yellow]nessun token servito dalla cache[/yellow] — "
+                          "con la storia rimandata a ogni messaggio il caching "
+                          "è la voce che decide il prezzo: verifica "
+                          "ANTHROPIC_CACHING nel .env")
+        self.console.print(Panel(
+            f"modello: {escape(modelli)}\n"
+            f"{riga_cache}\n\n"
+            f"[bold]costo sessione: {eur:.4f} € ({self.costo_usd:.4f} $)[/bold]\n"
+            f"a turno: {per_turno:.4f} €  ·  1.000 turni: {per_turno * 1000:.2f} €",
+            title="costo effettivo (token fatturati dall'API)",
+            border_style="green", expand=False))
+        self.console.print(
+            "[dim]Non è una stima: sono i token che l'API Anthropic riporta "
+            "come fatturati. Listino giugno 2026, vedi tools/costi.py.[/dim]")
 
 
 # ── singleton e annotazioni no-op ────────────────────────────────────────

@@ -43,6 +43,9 @@ fermati a chiedermelo.
      `grep -c '^NOME_VARIABILE=' .env`, senza mostrare i valori) e che nessuna
      contenga ancora i segnaposto `<...>` o il testo di esempio
      "ScegliUnaPasswordLungaECasuale".
+   - Se voglio provare anche i modelli Claude: deve esserci ANTHROPIC_API_KEY
+     compilata (senza `<...>`). Se manca, segnalamelo senza bloccare il resto:
+     serve solo alle chat *_anthropic.py.
    - Verifica che VLLM_URL termini con `/v1` (puoi controllare con
      `grep -c '^VLLM_URL=.*\/v1\s*$' .env`).
    - Permessi: `chmod 600 .env`.
@@ -58,7 +61,7 @@ fermati a chiedermelo.
      `pip install --upgrade pip && pip install -r requirements.txt`.
    - `pip check` non segnala conflitti.
    - Verifica gli import chiave:
-     `python -c "import langchain, langgraph, langchain_openai, pandas, sqlalchemy, psycopg2, yaml, fastapi, openpyxl, chromadb, sentence_transformers, pypdf; print('import ok')"`
+     `python -c "import langchain, langgraph, langchain_openai, langchain_anthropic, anthropic, pandas, sqlalchemy, psycopg2, yaml, fastapi, openpyxl, chromadb, sentence_transformers, pypdf, rich; print('import ok')"`
      (nota: sentence-transformers è pesante, l'installazione può richiedere minuti)
 
 6. CONTAINER DOCKER
