@@ -110,8 +110,27 @@ dentro il sistema (`tools/tracing.py`, un callback handler LangChain + `rich`):
   e l'inizio del risultato: è il modo per verificare che l'agente stia
   leggendo i numeri veri invece di inventarli;
 - ❌ **gli errori** di modello e tool, senza far cadere la chat;
-- un **riepilogo per turno** e uno **di sessione** (turni, chiamate, tool più
-  usati, token totali, picco di contesto).
+- un **riepilogo per turno** e uno **di sessione**: turni, chiamate, tool più
+  usati, **token in ingresso e in uscita** (totali e per turno), picco di
+  contesto, la ripartizione dei token **per attore** (quale specialista
+  consuma cosa) e una **stima di costo sull'API Anthropic**.
+
+### La stima dei costi (`tools/costi.py`)
+
+Serve a decidere il prezzo da fare ai clienti. Per ogni modello del listino
+mostra il costo della sessione in due scenari — **senza prompt caching → con
+caching** — più il costo per turno e per 1.000 turni.
+
+Il caching è la voce che decide tutto: in chat la storia viene rimandata
+intera a ogni messaggio, quindi senza cache si ripaga ogni volta tutto il
+passato, mentre le riletture dalla cache costano un decimo. Nel confronto
+la quota ipotizzata di riletture è l'80% (`QUOTA_CACHE_TIPICA`).
+
+⚠️ **È una stima, non un preventivo**: i token li conta il tokenizer di Qwen3
+(il modello su vLLM), non quello di Claude, e sullo stesso testo i due
+contano diversamente. Prima di fissare i prezzi, misura i prompt reali con
+l'endpoint `count_tokens` di Anthropic e verifica il listino (quello in
+`tools/costi.py` è di giugno 2026).
 
 La percentuale di contesto si basa su `VLLM_MAX_MODEL_LEN` nel `.env`, che
 deve corrispondere al `--max-model-len` con cui hai avviato l'app AI Deploy.
@@ -126,7 +145,7 @@ agents/            llm.py (client vLLM/OVH) · agente_cliente · agente_normativ
                    orchestrator_clienti (per-sessione)
 tools/             db.py · dkv_tools.py (per-cliente, fabbrica) · rag.py (ChromaDB,
                    ricerca multi-query) · portafoglio_tools.py (interni) ·
-                   tracing.py (log delle chat)
+                   tracing.py (log delle chat) · costi.py (stima prezzi API)
 scripts/           esplora_excel · carica_dkv · test_vllm · indicizza_normativa ·
                    test_normativa
 config/            dkv_mapping.yml · regole_servizi.yml · agents_config.yml (interno) ·

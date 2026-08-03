@@ -17,14 +17,17 @@ Usato da chat_test.py e chat_orchestratore.py.
 """
 import os
 import time
-from collections import Counter
+from collections import Counter, defaultdict
 
 try:
     from rich.console import Console
     from rich.markup import escape
     from rich.panel import Panel
+    from rich.table import Table
 except ImportError:  # pragma: no cover
     raise SystemExit("Manca la libreria 'rich': pip install -r requirements.txt")
+
+from tools.costi import QUOTA_CACHE_TIPICA, stima
 
 from langchain_core.callbacks import BaseCallbackHandler
 
@@ -117,6 +120,9 @@ class Traccia(BaseCallbackHandler):
         self.sessione_durata = 0.0
         self.picco_contesto = 0
         self.tool_usati: Counter = Counter()
+        # chi consuma i token: orchestratore, router, ogni specialista
+        self.per_attore: dict[str, dict] = defaultdict(
+            lambda: {"in": 0, "out": 0, "chiamate": 0})
 
     def _reset_turno(self) -> None:
         self.turno_in = self.turno_out = 0
@@ -159,6 +165,10 @@ class Traccia(BaseCallbackHandler):
         self.turno_llm += 1
         self.turno_in += tok_in
         self.turno_out += tok_out
+        quota = self.per_attore[self.attore]
+        quota["in"] += tok_in
+        quota["out"] += tok_out
+        quota["chiamate"] += 1
         contesto = tok_in + tok_out
         self.turno_contesto = max(self.turno_contesto, contesto)
         self.picco_contesto = max(self.picco_contesto, contesto)
@@ -272,19 +282,71 @@ class Traccia(BaseCallbackHandler):
             return
         frazione = self.picco_contesto / self.max_contesto if self.max_contesto else 0
         piu_usati = ", ".join(f"{n} ({c})" for n, c in self.tool_usati.most_common(5))
+        totale = self.sessione_in + self.sessione_out
         self.console.print(Panel(
             f"{_plurale(self.turni, 'turno', 'turni')} · "
             f"{self.sessione_durata:.1f}s totali "
             f"({self.sessione_durata / self.turni:.1f}s a turno)\n"
             f"{_plurale(self.sessione_llm, 'chiamata al modello', 'chiamate al modello')} · "
             f"{_plurale(self.sessione_tool, 'tool', 'tool')}\n"
-            f"token: in {_num(self.sessione_in)} · out {_num(self.sessione_out)} · "
-            f"totale {_num(self.sessione_in + self.sessione_out)}\n"
+            f"[bold]token in ingresso:  {_num(self.sessione_in)}[/bold]\n"
+            f"[bold]token in uscita:    {_num(self.sessione_out)}[/bold]\n"
+            f"[bold]token totali:       {_num(totale)}[/bold]  "
+            f"[dim]({_num(round(totale / self.turni))} a turno)[/dim]\n"
             f"picco di contesto: [{_colore_contesto(frazione)}]"
             f"{_num(self.picco_contesto)} / {_num(self.max_contesto)} "
             f"({frazione:.0%})[/{_colore_contesto(frazione)}]"
             + (f"\ntool più usati: {piu_usati}" if piu_usati else ""),
             title="riepilogo sessione", border_style="cyan", expand=False))
+
+        self._tabella_attori()
+        self._tabella_costi()
+
+    def _tabella_attori(self) -> None:
+        """Dove vanno i token: utile per capire quale specialista costa."""
+        if not self.per_attore:
+            return
+        t = Table(title="token per attore", border_style="dim", expand=False)
+        t.add_column("attore")
+        t.add_column("chiamate", justify="right")
+        t.add_column("token in", justify="right")
+        t.add_column("token out", justify="right")
+        t.add_column("% del totale", justify="right")
+        totale = self.sessione_in + self.sessione_out
+        for nome, d in sorted(self.per_attore.items(),
+                              key=lambda kv: -(kv[1]["in"] + kv[1]["out"])):
+            quota = (d["in"] + d["out"]) / totale if totale else 0
+            t.add_row(nome, str(d["chiamate"]), _num(d["in"]), _num(d["out"]),
+                      f"{quota:.0%}")
+        self.console.print(t)
+
+    def _tabella_costi(self) -> None:
+        """Quanto costerebbe questa stessa sessione sull'API Anthropic."""
+        if not (self.sessione_in or self.sessione_out):
+            return
+        t = Table(title="stima costi sull'API Anthropic (€)",
+                  border_style="dim", expand=False)
+        t.add_column("modello")
+        t.add_column("sessione", justify="right")
+        t.add_column("a turno", justify="right")
+        t.add_column("1.000 turni", justify="right")
+        for r in stima(self.sessione_in, self.sessione_out):
+            per_turno = r["eur_con_cache"] / self.turni
+            t.add_row(
+                r["modello"],
+                f"{r['eur_senza_cache']:.4f} → [green]{r['eur_con_cache']:.4f}[/green]",
+                f"{per_turno:.4f}",
+                f"{per_turno * 1000:.2f}",
+            )
+        self.console.print(t)
+        self.console.print(
+            f"[dim]Due valori per la sessione: senza prompt caching → con "
+            f"caching (quota ipotizzata {QUOTA_CACHE_TIPICA:.0%}); «a turno» e "
+            f"«1.000 turni» usano il valore con caching.\n"
+            f"Stima indicativa: i token li conta il tokenizer di Qwen3, non "
+            f"quello di Claude. Per un preventivo vero: endpoint count_tokens "
+            f"di Anthropic sui prompt reali. Listino giugno 2026, "
+            f"vedi tools/costi.py.[/dim]")
 
 
 # ── singleton e annotazioni no-op ────────────────────────────────────────
