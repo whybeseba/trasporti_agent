@@ -16,6 +16,11 @@ La motivazione strategica: Orbitra è un **trampolino**. I servizi poco struttur
 
 ---
 
+## Premessa importante!
+Orbitra Identity e il servizio condiviso di key management ancora non esistono e per ora non sono nemmeno in road-map.
+
+**Al momento devi trattarli come interfacce da stub-are!**
+
 ## Architettura richiesta
 
 ### 1. Confine netto (bounded context)
